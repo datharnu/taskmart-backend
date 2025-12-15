@@ -1,0 +1,50 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  phoneNumber String   // Required for new users
+  image       String?  // Profile picture URL
+  password    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  listings    Listing[]
+
+  @@map("users")
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // 'mart' or 'task'
+  title       String
+  description String
+  price       Float
+  location    String
+  categoryId  String
+  tags        String?  // Comma-separated tags (mainly for tasks)
+  images      String[] // Array of image/video URLs (stored in R2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("listings")
+  @@index([userId])
+  @@index([type])
+  @@index([categoryId])
+}
