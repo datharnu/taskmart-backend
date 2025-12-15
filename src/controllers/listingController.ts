@@ -30,36 +30,66 @@ export class ListingController {
       throw new ValidationError(validation.errors.join(', '));
     }
 
-    // Validate images count (minimum 3, maximum 5)
+    // Validate images - only required for mart listings
     if (!listingData.images || !Array.isArray(listingData.images)) {
       throw new ValidationError('Images must be an array');
     }
 
-    if (listingData.images.length < 3) {
-      throw new ValidationError('Minimum 3 images or videos are required');
-    }
+    // For mart listings, images are required (minimum 3, maximum 5)
+    if (listingData.type === 'mart') {
+      if (listingData.images.length < 3) {
+        throw new ValidationError('Minimum 3 images or videos are required for mart listings');
+      }
 
-    if (listingData.images.length > 5) {
-      throw new ValidationError('Maximum 5 images or videos are allowed');
-    }
+      if (listingData.images.length > 5) {
+        throw new ValidationError('Maximum 5 images or videos are allowed');
+      }
 
-    // Validate each image/video URL (must be Cloudflare R2 CDN URLs)
-    const imageUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i;
-    for (const imageUrl of listingData.images) {
-      if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.trim()) {
-        throw new ValidationError('All image/video URLs must be valid strings');
+      // Validate each image/video URL (must be Cloudflare R2 CDN URLs)
+      const imageUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i;
+      for (const imageUrl of listingData.images) {
+        if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.trim()) {
+          throw new ValidationError('All image/video URLs must be valid strings');
+        }
+        
+        // Must be valid HTTP/HTTPS URL
+        if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+          throw new ValidationError('All image/video URLs must be valid HTTP/HTTPS URLs');
+        }
+        
+        // Validate URL format (should be R2 CDN URL or valid media URL)
+        // R2 URLs typically: https://pub-xxxx.r2.dev/images/xxx.jpg or https://pub-xxxx.r2.dev/videos/xxx.mp4
+        if (!imageUrlPattern.test(imageUrl)) {
+          throw new ValidationError(`Invalid media URL format: ${imageUrl}. Must be a valid image or video URL`);
+        }
       }
-      
-      // Must be valid HTTP/HTTPS URL
-      if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-        throw new ValidationError('All image/video URLs must be valid HTTP/HTTPS URLs');
+    } else if (listingData.type === 'task') {
+      // For task listings, images are optional but if provided, validate them
+      if (listingData.images.length > 0) {
+        // If images are provided for tasks, validate them (but don't require minimum)
+        if (listingData.images.length > 5) {
+          throw new ValidationError('Maximum 5 images or videos are allowed');
+        }
+
+        // Validate each image/video URL if provided
+        const imageUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i;
+        for (const imageUrl of listingData.images) {
+          if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.trim()) {
+            throw new ValidationError('All image/video URLs must be valid strings');
+          }
+          
+          // Must be valid HTTP/HTTPS URL
+          if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+            throw new ValidationError('All image/video URLs must be valid HTTP/HTTPS URLs');
+          }
+          
+          // Validate URL format
+          if (!imageUrlPattern.test(imageUrl)) {
+            throw new ValidationError(`Invalid media URL format: ${imageUrl}. Must be a valid image or video URL`);
+          }
+        }
       }
-      
-      // Validate URL format (should be R2 CDN URL or valid media URL)
-      // R2 URLs typically: https://pub-xxxx.r2.dev/images/xxx.jpg or https://pub-xxxx.r2.dev/videos/xxx.mp4
-      if (!imageUrlPattern.test(imageUrl)) {
-        throw new ValidationError(`Invalid media URL format: ${imageUrl}. Must be a valid image or video URL`);
-      }
+      // If images array is empty for tasks, that's fine - no validation needed
     }
 
     // Create the listing
